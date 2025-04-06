@@ -1,8 +1,11 @@
 import requests
 import xml.etree.ElementTree as ET
+from typing import List, Optional
 
 
-def find_top_3_drivers_at_race_n(year, race_number):
+def find_top_x_drivers_at_race_n(
+    year: int, driver_positions: int, race_number: int
+) -> List[str]:
     url = "http://ergast.com/api/f1/{}/{}/driverStandings".format(year, race_number)
     try:
         # Make the API call
@@ -19,14 +22,14 @@ def find_top_3_drivers_at_race_n(year, race_number):
         # Find all DriverStanding elements using the namespace
         all_standings = root.findall(".//mrd:DriverStanding", namespaces=namespaces)
 
-        top_3_drivers_list = []
+        top_x_drivers_list = []
 
         count = 0
         # Iterate and filter by position attribute
         for standing in all_standings:
             position = int(standing.get("position", 999))  # Get attribute, default high
 
-            if 1 <= position <= 3:
+            if 1 <= position <= driver_positions:
                 count += 1
                 # Find driver names within this standing element
                 driver = standing.find("mrd:Driver", namespaces=namespaces)
@@ -44,17 +47,17 @@ def find_top_3_drivers_at_race_n(year, race_number):
                     family_name = (
                         family_name_elem.text if family_name_elem is not None else "N/A"
                     )
-                    top_3_drivers_list.append(f"{given_name} {family_name}")
+                    top_x_drivers_list.append(f"{given_name} {family_name}")
 
                 else:
                     print(f"{position}. Driver info not found")
 
             # Stop after finding the first 3. The list is always sorted
-            if count >= 3:
+            if count >= driver_positions:
                 break
 
-        print(f"{year} top 3 drivers at race #3: {top_3_drivers_list}")
-        return top_3_drivers_list
+        print(f"{year} top {driver_positions} drivers at race #3: {top_x_drivers_list}")
+        return top_x_drivers_list
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
@@ -64,7 +67,7 @@ def find_top_3_drivers_at_race_n(year, race_number):
         print(f"An unexpected error occurred: {e}")
 
 
-def find_winner(year):
+def find_winner(year: int) -> Optional[str]:
     url = "http://ergast.com/api/f1/{}/driverStandings".format(year)
     try:
         response = requests.get(url)
@@ -123,13 +126,14 @@ def find_winner(year):
 def main():
     prediction_mathces = 0
     for year in range(1950, 2024):
-        top_3_drivers_list_at_race_n = find_top_3_drivers_at_race_n(
+        top_x_drivers_list_at_race_n = find_top_x_drivers_at_race_n(
             year,
             3,  # at race #3
+            5,  # first 5 drivers in standings
         )
         winner = find_winner(year)
 
-        if winner in top_3_drivers_list_at_race_n:
+        if winner in top_x_drivers_list_at_race_n:
             prediction_mathces += 1
 
     prediction_freq = (prediction_mathces / (2024 - 1950)) * 100
